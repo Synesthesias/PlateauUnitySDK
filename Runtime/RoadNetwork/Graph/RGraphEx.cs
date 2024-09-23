@@ -60,17 +60,19 @@ namespace PLATEAU.RoadNetwork.Graph
 
                 var lodLevel = cityObject.CityObjectGroup.GetLodLevel();
                 var roadType = cityObject.GetRoadType(true);
+                // transformを適用する
+                var mat = cityObject.CityObjectGroup.transform.localToWorldMatrix;
                 foreach (var mesh in cityObject.Meshes)
                 {
                     var face = new RFace(graph, cityObject.CityObjectGroup, roadType, lodLevel);
                     var vertices = mesh.Vertices.Select(v =>
                     {
-                        return vertexMap.GetValueOrCreate(v, k => new RVertex(k));
+                        var v4 = mat * v.Xyza(1f);
+                        return vertexMap.GetValueOrCreate(v4.Xyz(), k => new RVertex(k));
                     }).ToList();
                     foreach (var s in mesh.SubMeshes)
                     {
                         var separated = s.Separate();
-
                         foreach (var m in separated)
                         {
                             for (var i = 0; i < m.Triangles.Count; i += 3)
@@ -83,15 +85,43 @@ namespace PLATEAU.RoadNetwork.Graph
                                     , e => new REdge(e.V0, e.V1));
                                 var edges = new[] { e0, e1, e2 };
                                 foreach (var e in edges)
+                                {
                                     face.AddEdge(e);
+                                }
                             }
                         }
                     }
-
                     graph.AddFace(face);
                 }
             }
             return graph;
+        }
+
+        /// <summary>
+        /// 輪郭以外の内部点を削除する
+        /// </summary>
+        /// <param name="self"></param>
+        public static void RemoveInnerVertex(this RFace self)
+        {
+            var outlineVertices = self.ComputeOutlineVertices().ToHashSet();
+            foreach (var v in self.CreateVertexSet())
+            {
+                if (outlineVertices.Contains(v))
+                    continue;
+                v.DisConnect(true);
+            }
+        }
+
+        /// <summary>
+        /// 輪郭以外の内部点を削除する
+        /// </summary>
+        /// <param name="self"></param>
+        public static void RemoveInnerVertex(this RGraph self)
+        {
+            foreach (var face in self.Faces)
+            {
+                face.RemoveInnerVertex();
+            }
         }
 
         /// <summary>
@@ -493,6 +523,10 @@ namespace PLATEAU.RoadNetwork.Graph
             return ret;
         }
 
+        /// <summary>
+        /// Face内で非連結な部分を分離する
+        /// </summary>
+        /// <param name="self"></param>
         public static void SeparateFaces(this RGraph self)
         {
             foreach (var p in self.Faces.ToList())
@@ -505,15 +539,15 @@ namespace PLATEAU.RoadNetwork.Graph
         {
             var vertices = faces
                 .SelectMany(f => f.Edges.SelectMany(e => e.Vertices))
+                .Where(v => v != null)
                 .ToHashSet();
             var edges = faces
                 .SelectMany(f => f.Edges)
                 .ToHashSet();
-            var res = GeoGraph2D.ComputeOutline(
+            var res = GeoGraph2D.ComputeOutline2(
                 vertices
-                , v => v.Position
-                , AxisPlane.Xz
-                , v => v.Edges.Where(e => edges.Contains(e)).Select(e => e.GetOppositeVertex(v)));
+                , v => v.Position, AxisPlane.Xz
+                , v => v.Edges.Where(e => edges.Contains(e)).Select(e => e.GetOppositeVertex(v)).Where(n => n != null));
             return res.Outline ?? new List<RVertex>();
         }
 
@@ -554,6 +588,12 @@ namespace PLATEAU.RoadNetwork.Graph
                 .Where(f => f.CityObjectGroup == cityObjectGroup && f.RoadTypes.HasAnyFlag(roadTypes) && f.RoadTypes.HasAnyFlag(removeRoadTypes) == false)
                 .ToList();
             return ComputeOutlineVertices(faces);
+        }
+
+        public static List<RVertex> ComputeConvexHullVertices(this RFace self)
+        {
+            var vertices = self.CreateVertexSet();
+            return GeoGraph2D.ComputeConvexVolume(vertices, v => v.Position, AxisPlane.Xz, 1e-3f);
         }
 
         /// <summary>
@@ -848,6 +888,16 @@ namespace PLATEAU.RoadNetwork.Graph
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// selfに所属する全頂点のHashSetを取得する
+        /// </summary>
+        /// <param name="self"></param>
+        /// <returns></returns>
+        public static HashSet<RVertex> CreateVertexSet(this RFace self)
+        {
+            return self.Edges.SelectMany(e => e.Vertices).Where(v => v != null).ToHashSet();
         }
     }
 

@@ -35,9 +35,9 @@ namespace PLATEAU.RoadNetwork.CityObject.Drawer
 
                 var v = new[]
                 {
-                    mat * v0,
-                    mat * v1,
-                    mat * v2
+                    mat * v0.Xyza(1f),
+                    mat * v1.Xyza(1f),
+                    mat * v2.Xyza(1f)
                 }.Select(x => new Vector3(x.x, x.y, x.z));
                 DebugEx.DrawLines(v, true, color, duration, depthTest);
             }
@@ -71,7 +71,9 @@ namespace PLATEAU.RoadNetwork.CityObject.Drawer
 
                     foreach (var subMesh in mesh.SubMeshes)
                     {
-                        DrawMesh(mesh, subMesh, Matrix4x4.identity, color: DebugEx.GetDebugColor(index, meshColorNum));
+
+                        var mat = item.CityObjectGroup.transform.localToWorldMatrix;
+                        DrawMesh(mesh, subMesh, mat, color: DebugEx.GetDebugColor(index, meshColorNum));
                         index++;
                     }
                 }

@@ -1,8 +1,4 @@
-﻿using System;
-using System.Numerics;
-using UnityEngine;
-using Vector2 = UnityEngine.Vector2;
-using Vector3 = UnityEngine.Vector3;
+﻿using UnityEngine;
 
 namespace PLATEAU.Util
 {
@@ -17,7 +13,7 @@ namespace PLATEAU.Util
         /// <summary> 各要素をmin,maxの各要素でクランプ </summary>
         public static Vector3 Clamp(Vector3 x, Vector3 min, Vector3 max)
         {
-            return new Vector3(Mathf.Clamp(x.x, min.x, max.x), Mathf.Clamp(x.y, min.y, max.y), Mathf.Clamp(x.x, min.x, max.x));
+            return new Vector3(Mathf.Clamp(x.x, min.x, max.x), Mathf.Clamp(x.y, min.y, max.y), Mathf.Clamp(x.z, min.z, max.z));
         }
 
         /// <summary> xを差し替えたVector3返す。非破壊 </summary>
@@ -229,6 +225,17 @@ namespace PLATEAU.Util
                 min.x <= self.x && self.x <= max.x &&
                 min.y <= self.y && self.y <= max.y &&
                 min.z <= self.z && self.z <= max.z;
+        }
+
+        /// <summary>
+        /// return new Vector4(self.x, self.y, self.z, a);)
+        /// </summary>
+        /// <param name="self"></param>
+        /// <param name="a"></param>
+        /// <returns></returns>
+        public static Vector4 Xyza(this Vector3 self, float a)
+        {
+            return new Vector4(self.x, self.y, self.z, a);
         }
     }
 }

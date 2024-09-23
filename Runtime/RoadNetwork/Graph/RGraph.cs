@@ -180,13 +180,23 @@ namespace PLATEAU.RoadNetwork.Graph
 
         /// <summary>
         /// ©•ª©g‚ğŠO‚·.
-        /// keepLink‚ªtrue‚Ì‚Í©•ª‚ª‚¢‚È‚­‚È‚Á‚Ä‚àÚ‘±’¸“_“¯m‚ÌEdge‚ğ“\‚Á‚ÄÚ‘±‚ªÁ‚¦‚È‚¢‚æ‚¤‚É‚·‚é
+        /// removeEdge = true‚Ì‚Í©•ª‚ğ‚Á‚Ä‚¢‚é•Ó‚àíœ‚·‚é
         /// </summary>
-        public void DisConnect()
+        public void DisConnect(bool removeEdge = false)
         {
-            // ©•ª‚ğ‚Á‚Ä‚¢‚é•Ó‚ğíœ‚·‚é
-            foreach (var e in Edges.ToList())
-                e.RemoveVertex(this);
+            if (removeEdge)
+            {
+                // ©•ª‚ğ‚Á‚Ä‚¢‚é•Ó‚ğíœ‚·‚é
+                foreach (var e in Edges.ToList())
+                    e.DisConnect();
+            }
+            else
+            {
+                // ©•ª‚ğ‚Á‚Ä‚¢‚é•Ó‚©‚ç©•ª‚ğíœ‚·‚é
+                foreach (var e in Edges.ToList())
+                    e.RemoveVertex(this);
+            }
+
         }
 
         /// <summary>

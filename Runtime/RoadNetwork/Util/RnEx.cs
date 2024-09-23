@@ -1,4 +1,5 @@
-﻿using PLATEAU.CityAdjust.NonLibDataHolder;
+﻿using PLATEAU.CityAdjust.NonLibData;
+using PLATEAU.CityAdjust.NonLibDataHolder;
 using PLATEAU.CityExport.ModelConvert;
 using PLATEAU.CityExport.ModelConvert.SubMeshConvert;
 using PLATEAU.CityImport.Import.Convert;
@@ -126,12 +127,40 @@ namespace PLATEAU.RoadNetwork.Util
             public List<SubDividedCityObject> ConvertedCityObjects { get; } = new List<SubDividedCityObject>();
         }
 
-
-        internal static async Task<ConvertCityObjectResult> ConvertCityObjectsAsync(IEnumerable<PLATEAUCityObjectGroup> cityObjectGroups, float epsilon = 0.1f)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="cityObjectGroups"></param>
+        /// <param name="epsilon"></param>
+        /// <param name="useContourMesh"></param>
+        /// <returns></returns>
+        internal static async Task<ConvertCityObjectResult> ConvertCityObjectsAsync(IEnumerable<PLATEAUCityObjectGroup> cityObjectGroups, float epsilon = 0.1f, bool useContourMesh = true)
         {
             // NOTE : CityGranularityConverterを参考
-            var cityObjectGroupList = cityObjectGroups.ToList();
+            var cityObjectGroupList = new List<PLATEAUCityObjectGroup>();
+            var contourMeshList = new List<PLATEAUContourMesh>();
+            foreach (var cityObjectGroup in cityObjectGroups)
+            {
+                if (useContourMesh)
+                {
+                    var contourMesh = cityObjectGroup.GetComponent<PLATEAUContourMesh>();
+                    if (contourMesh)
+                    {
+                        contourMeshList.Add(contourMesh);
+                    }
+                    else
+                    {
+                        cityObjectGroupList.Add(cityObjectGroup);
+                    }
+
+                }
+                else
+                {
+                    cityObjectGroupList.Add(cityObjectGroup);
+                }
+            }
             var nativeOption = new GranularityConvertOption(MeshGranularity.PerAtomicFeatureObject, 1);
+
             var transformList = new UniqueParentTransformList(cityObjectGroupList.Select(c => c.transform).ToArray());
 
             // 属性情報を記憶しておく
@@ -154,6 +183,7 @@ namespace PLATEAU.RoadNetwork.Util
             var attrHelper = new AttributeDataHelper(getter, true);
             var cco = await Task.Run(() => new SubDividedCityObject(dstModel, attrHelper));
 
+            var ret = new ConvertCityObjectResult();
             foreach (var co in cityObjectGroupList)
             {
                 var ccoChild = cco.GetAllChildren().FirstOrDefault(c => c.Name == co.name);
@@ -162,10 +192,13 @@ namespace PLATEAU.RoadNetwork.Util
                     ccoChild.SetCityObjectGroup(co);
                 }
             }
-
-            var ret = new ConvertCityObjectResult();
             ret.ConvertedCityObjects.AddRange(cco.GetAllChildren().Where(c => c.Children.Any() == false && c.Meshes.Any()));
 
+            foreach (var cm in contourMeshList)
+            {
+                var sco = new SubDividedCityObject(cm);
+                ret.ConvertedCityObjects.Add(sco);
+            }
             return ret;
         }
 

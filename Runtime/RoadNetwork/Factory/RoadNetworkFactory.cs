@@ -55,6 +55,9 @@ namespace PLATEAU.RoadNetwork.Factory
         [field: SerializeField]
         public bool SaveTmpData { get; set; } = false;
 
+
+        [field: SerializeField]
+        public bool UseContourMesh { get; set; } = true;
         // --------------------
         // end:フィールド
         // --------------------
@@ -689,18 +692,37 @@ namespace PLATEAU.RoadNetwork.Factory
             }
         }
 
-        public async Task<RnModel> CreateRnModelImplAsync(List<PLATEAUCityObjectGroup> cityObjectGroups, GameObject target)
+        public class CreateRnModelRequest
         {
-            var subDividedCityObjects = (await RnEx.ConvertCityObjectsAsync(cityObjectGroups)).ConvertedCityObjects;
-            var graph = GraphFactory.CreateGraph(subDividedCityObjects);
-            var model = await CreateRnModelAsync(graph);
+            public List<PLATEAUCityObjectGroup> CityObjectGroups { get; set; }
+            public GameObject Target { get; set; }
+
+            public PLATEAURnStructureModel Model { get; set; }
+
+            public PLATEAURGraph Graph { get; set; }
+
+            public PLATEAUSubDividedCityObjectGroup SubDividedCityObjectGroup { get; set; }
+
+
+        }
+
+        public CreateRnModelRequest CreateRequest(List<PLATEAUCityObjectGroup> cityObjectGroups, GameObject target)
+        {
+            if (!target)
+                target = new GameObject("RoadNetworkStructure");
+            var ret = new CreateRnModelRequest
+            {
+                CityObjectGroups = cityObjectGroups,
+                Model = target.GetOrAddComponent<PLATEAURnStructureModel>(),
+                Target = target,
+            };
 
             if (target)
             {
                 if (SaveTmpData)
                 {
-                    target.GetOrAddComponent<PLATEAURGraph>().Graph = graph;
-                    target.GetOrAddComponent<PLATEAUSubDividedCityObjectGroup>().CityObjects = subDividedCityObjects;
+                    ret.Graph = target.GetOrAddComponent<PLATEAURGraph>();
+                    ret.SubDividedCityObjectGroup = target.GetOrAddComponent<PLATEAUSubDividedCityObjectGroup>();
                 }
                 else
                 {
@@ -716,28 +738,26 @@ namespace PLATEAU.RoadNetwork.Factory
                     }
                 }
             }
-
-            return model;
-        }
-
-        public async Task<PLATEAURnStructureModel> CreateRnModelAsync(List<PLATEAUCityObjectGroup> cityObjectGroups, GameObject target)
-        {
-            if (!target)
-                target = new GameObject("RoadNetworkStructure");
-            var ret = target.GetComponent<PLATEAURnStructureModel>() ?? target.AddComponent<PLATEAURnStructureModel>();
-            var model = await CreateRnModelImplAsync(cityObjectGroups, target);
-            ret.RoadNetwork = model;
             return ret;
         }
 
-        public async Task<PLATEAURnStructureModel> CreateRnModelAsync(RGraph graph, GameObject target)
+
+        public async Task<RnModel> CreateRnModelAsync(CreateRnModelRequest req)
         {
-            if (!target)
-                target = new GameObject("RoadNetworkStructure");
-            var ret = target.GetComponent<PLATEAURnStructureModel>() ?? target.AddComponent<PLATEAURnStructureModel>();
+            var subDividedRes =
+                await RnEx.ConvertCityObjectsAsync(req.CityObjectGroups, useContourMesh: UseContourMesh);
+            var subDividedCityObjects = subDividedRes.ConvertedCityObjects;
+            var graph = GraphFactory.CreateGraph(subDividedCityObjects);
             var model = await CreateRnModelAsync(graph);
-            ret.RoadNetwork = model;
-            return ret;
+
+            if (req.Graph)
+                req.Graph.Graph = graph;
+
+            if (req.SubDividedCityObjectGroup)
+                req.SubDividedCityObjectGroup.CityObjects = subDividedCityObjects;
+
+            req.Model.RoadNetwork = model;
+            return model;
         }
     }
 }

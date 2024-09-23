@@ -45,6 +45,7 @@ namespace PLATEAU.RoadNetwork.Graph.Drawer
         public class FaceOption : DrawOption
         {
             public bool showOutline = true;
+            public bool showConvexVolume = false;
             public RRoadTypeMask showOutlineMask = RRoadTypeMask.Road;
             public RRoadTypeMask showOutlineRemoveMask = RRoadTypeMask.Empty;
             public bool showCityObjectOutline = false;
@@ -298,8 +299,18 @@ namespace PLATEAU.RoadNetwork.Graph.Drawer
                 DrawString($"F[{face.DebugMyId}]", center);
             }
 
-            if (op.showOutline)
+            if (op.showConvexVolume)
             {
+                DrawArrows(face.ComputeConvexHullVertices().Select(v => v.Position), isLoop: true, color: edgeOption.color);
+            }
+            else if (op.showOutline)
+            {
+
+                var ii = 0;
+                foreach (var v in vertices)
+                {
+                    //DebugEx.DrawString((ii++).ToString(), v.Position, color: Color.white);
+                }
                 foreach (var e in edges)
                 {
                     Draw(edgeOption, e, work);

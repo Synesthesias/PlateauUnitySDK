@@ -39,6 +39,67 @@ namespace PLATEAU.Util.GeoGraph
                 return obj.GetHashCode();
             }
         }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="vertices"></param>
+        /// <param name="toVec3"></param>
+        /// <param name="plane"></param>
+        /// <param name="sameLineTolerance">同一直線の許容誤差. ２つのベクトルの内積が1-これ以上</param>
+        /// <returns></returns>
+        public static List<T> ComputeConvexVolume<T>(IEnumerable<T> vertices, Func<T, Vector3> toVec3, AxisPlane plane, float sameLineTolerance = 0f)
+        {
+            Vector3 ToVec2(T a) => toVec3(a).GetTangent(plane);
+            // リストの最後の辺が時計回りになっているかを確認
+            bool IsLastClockwise(List<T> list)
+            {
+                if (list.Count <= 2)
+                    return true;
+                var v1 = ToVec2(list[^1]);
+                var v2 = ToVec2(list[^2]);
+                var v3 = ToVec2(list[^3]);
+                var d1 = v1 - v2;
+                var d2 = v2 - v3;
+                var v = Vector2Ex.Cross(d1, d2);
+                if (v > 0)
+                    return true;
+                // 同一直線の場合は採用とする. sameLineTolerance = 0の場合は同一直線を無視する
+                return Vector2.Dot(d1.normalized, d2.normalized) > 1f - sameLineTolerance;
+            }
+            var compare = new Vector2Equitable(Epsilon);
+            var sortedVertices = vertices.OrderBy(v => ToVec2(v).x).ThenBy(v => ToVec2(v).y).ToList();
+            for (var i = 0; i < sortedVertices.Count - 1;)
+            {
+                if (compare.Equals(ToVec2(sortedVertices[i]), ToVec2(sortedVertices[i + 1])))
+                    sortedVertices.RemoveAt(i + 1);
+                else
+                    i++;
+            }
+            if (sortedVertices.Count <= 2)
+                return new List<T>();
+
+            // 上方の凸形状計算
+            var ret = new List<T> { sortedVertices[0], sortedVertices[1] };
+
+            for (var i = 2; i < sortedVertices.Count; i++)
+            {
+                ret.Add(sortedVertices[i]);
+                while (IsLastClockwise(ret) == false)
+                    ret.RemoveAt(ret.Count - 2);
+            }
+
+            // 下方の凸形状計算
+            ret.Add(sortedVertices[^2]);
+            for (var i = sortedVertices.Count - 3; i >= 0; --i)
+            {
+                ret.Add(sortedVertices[i]);
+                while (IsLastClockwise(ret) == false)
+                    ret.RemoveAt(ret.Count - 2);
+            }
+
+            return ret;
+        }
 
         /// <summary>
         /// Vector3の頂点をtoVec2で2Dに射影したうえで凸包を構成する頂点を返す
@@ -281,6 +342,171 @@ namespace PLATEAU.Util.GeoGraph
         /// <param name="plane"></param>
         /// <param name="getNeighbor"></param>
         /// <returns></returns>
+        public static ComputeOutlineResult<T> ComputeOutline2<T>(
+            IEnumerable<T> vertices
+            , Func<T, Vector3> toVec3
+            , AxisPlane plane
+            , Func<T, IEnumerable<T>> getNeighbor
+            )
+        {
+            var res = new ComputeOutlineResult<T>();
+            var comp = Comparer<float>.Default;
+            var keys = vertices.ToList();
+            if (keys.Count == 0)
+                return res;
+
+            if (keys.Count <= 2)
+            {
+                res.Outline = keys;
+                res.Success = false;
+                return res;
+            }
+
+            Vector2 ToVec2(T a) => toVec3(a).GetTangent(plane);
+
+
+            keys.Sort((a, b) =>
+            {
+                var a2 = ToVec2(a);
+                var b2 = ToVec2(b);
+                var x = comp.Compare(a2.x, b2.x);
+                var y = comp.Compare(a2.y, b2.y);
+                if (x != 0)
+                    return x;
+                return y;
+            });
+
+            var convexVertices = ComputeConvexVolume(keys, toVec3, plane, 1e-3f);
+
+            // success : outlineVerticesがきれいにループしている
+            // hasSelfCrossing : 途中に同じ点が２回出てくる(直線１本でつながっている個所がある
+            // outlineVertices : アウトライン頂点
+            (bool success, bool hasSelfCrossing, List<T> outlineVertices)
+                Search
+                (
+                    T start
+                    , Vector2 dir
+                    , Func<(float ang, float sqrLen), (float ang, float sqrLen), int> compare
+                    )
+            {
+                var convexIndex = 0;
+                var ret = new List<T> { start };
+                var hasCrossing = false;
+                (float ang, float sqrLen) Eval(Vector2 axis, Vector2 a)
+                {
+                    var ang = Vector2.SignedAngle(axis, a);
+                    if (ang < 0f)
+                        ang += 360f;
+                    var sqrLen = a.sqrMagnitude;
+                    return new(ang, sqrLen);
+                }
+                while (true)
+                {
+                    var last = ToVec2(ret[^1]);
+
+                    var neighbors = getNeighbor(ret[^1]).ToList();
+                    if (neighbors.Count == 0)
+                        break;
+
+                    bool TryCalcNext(out T next)
+                    {
+                        var nextConvexIndex = (convexIndex + 1) % convexVertices.Count;
+                        if (neighbors.Contains(convexVertices[nextConvexIndex]))
+                        {
+                            next = convexVertices[nextConvexIndex];
+                            convexIndex = nextConvexIndex;
+                            return true;
+                        }
+
+                        // 途中につながるようなものは削除
+                        var filtered = ret.Count >= 2 ? neighbors.Where(v => ret[^2].Equals(v) == false).ToList() : neighbors;
+                        if (filtered.Count == 0)
+                            filtered = neighbors;
+                        if (filtered.Count == 0)
+                        {
+                            next = default(T);
+                            return false;
+                        }
+
+                        next = filtered.First();
+
+                        var eval0 = Eval(dir, ToVec2(next) - last);
+                        foreach (var v in filtered.Skip(1))
+                        {
+                            // 最も外側に近い点を返す
+                            var eval1 = Eval(dir, ToVec2(v) - last);
+                            if (compare(eval0, eval1) < 0)
+                            {
+                                next = v;
+                                eval0 = eval1;
+                            }
+                        }
+
+                        return true;
+                    }
+
+                    if (TryCalcNext(out var next) == false)
+                        break;
+
+                    // 先頭に戻ってきたら終了
+                    if (ret[0].Equals(next))
+                        return new(true, hasCrossing, ret);
+
+                    // 途中に戻ってくる場合
+                    var index = ret.IndexOf(next);
+                    if (index >= 0)
+                    {
+                        // ループを検出したら終了
+                        if (index > 0 && ret[index - 1].Equals(ret[^1]))
+                        {
+                            return new(false, hasCrossing, ret);
+                        }
+                        hasCrossing = true;
+                    }
+
+                    ret.Add(next);
+                    dir = last - ToVec2(next);
+
+                }
+
+                return new(false, hasCrossing, ret);
+            }
+
+            // 時計回りに探し出す
+            var leftSearch = Search(
+                    convexVertices[0]
+                    , Vector2.down
+                    , (a, b) =>
+                    {
+                        var x = -comp.Compare(b.ang, a.ang);
+                        if (x == 0)
+                            x = comp.Compare(b.sqrLen, a.sqrLen);
+                        return x;
+                    }
+                );
+            // 見つかったらそれでおしまい
+            res.Success = leftSearch.success;
+            res.Outline = leftSearch.outlineVertices;
+            res.HasSelfCrossing = leftSearch.hasSelfCrossing;
+            if (res.Success)
+                return res;
+
+            res.HasSelfCrossing = res.Outline.GroupBy(v => v).Any(g => g.Count() > 1);
+            if (res.HasSelfCrossing)
+                Debug.Log("アウトライン計算でループ検出");
+
+            return res;
+        }
+
+        /// <summary>
+        /// アウトライン頂点を返す
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="vertices"></param>
+        /// <param name="toVec3"></param>
+        /// <param name="plane"></param>
+        /// <param name="getNeighbor"></param>
+        /// <returns></returns>
         public static ComputeOutlineResult<T> ComputeOutline<T>(
             IEnumerable<T> vertices
             , Func<T, Vector3> toVec3
@@ -301,7 +527,9 @@ namespace PLATEAU.Util.GeoGraph
                 return res;
             }
 
-            Vector3 ToVec2(T a) => toVec3(a).GetTangent(plane);
+            Vector2 ToVec2(T a) => toVec3(a).GetTangent(plane);
+
+
             keys.Sort((a, b) =>
             {
                 var a2 = ToVec2(a);
@@ -447,6 +675,7 @@ namespace PLATEAU.Util.GeoGraph
             res.HasSelfCrossing = res.Outline.GroupBy(v => v).Any(g => g.Count() > 1);
             if (res.HasSelfCrossing)
                 Debug.Log("アウトライン計算でループ検出");
+
             return res;
         }
 

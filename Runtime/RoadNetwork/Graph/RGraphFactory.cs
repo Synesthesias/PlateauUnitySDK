@@ -15,6 +15,7 @@ namespace PLATEAU.RoadNetwork.Graph
         public float mergeCellSize = 0.5f;
         public int mergeCellLength = 4;
         public float removeMidPointTolerance = 0.3f;
+        public bool useOutlineOnly = false;
         // --------------------
         // end:フィールド
         // --------------------
@@ -22,6 +23,13 @@ namespace PLATEAU.RoadNetwork.Graph
         public RGraph CreateGraph(List<SubDividedCityObject> cityObjects)
         {
             var graph = RGraphEx.Create(cityObjects);
+
+            if (useOutlineOnly)
+            {
+                graph.EdgeReduction();
+                graph.RemoveInnerVertex();
+            }
+
             if (reductionOnCreate)
                 Reduction(graph);
             return graph;

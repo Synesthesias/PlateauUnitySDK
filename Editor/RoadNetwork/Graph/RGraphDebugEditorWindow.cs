@@ -57,6 +57,10 @@ namespace PLATEAU.Editor.RoadNetwork.Graph
 
                 RnEditorUtil.TargetToggle($"ID[{f.DebugMyId}]", work.InstanceHelper.TargetFaces, f);
                 EditorGUILayout.EnumFlagsField("RoadType", f.RoadTypes);
+                if (GUILayout.Button("Remove Inner Vertex"))
+                {
+                    f.RemoveInnerVertex();
+                }
             }
         }
         FaceEdit faceEdit = new FaceEdit();
