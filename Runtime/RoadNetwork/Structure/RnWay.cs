@@ -13,7 +13,7 @@ namespace PLATEAU.RoadNetwork.Structure
     /// </summary>
     public class RnWayPoints : IReadOnlyList<RnPoint>
     {
-        private RnWay way;
+        private readonly RnWay way;
 
         public RnWayPoints(RnWay way)
         {
@@ -198,6 +198,17 @@ namespace PLATEAU.RoadNetwork.Structure
         {
             if (allowMinus && index < 0)
                 index = Count + index;
+            return IsReversed ? Count - 1 - index : index;
+        }
+
+        /// <summary>
+        /// IsReversed ? Count - 1 - index : index
+        /// LineStringとWayのインデックスの相互変換
+        /// </summary>
+        /// <param name="index"></param>
+        /// <returns></returns>
+        public int SwitchIndex(int index)
+        {
             return IsReversed ? Count - 1 - index : index;
         }
 
@@ -486,6 +497,20 @@ namespace PLATEAU.RoadNetwork.Structure
         }
 
         /// <summary>
+        /// self.GetPoint(index) == pointとなるindexを返す. 見つからない場合は-1が返る.
+        /// </summary>
+        /// <param name="self"></param>
+        /// <param name="point"></param>
+        /// <returns></returns>
+        public static int FindPointIndex(this RnWay self, RnPoint point)
+        {
+            var index = self.LineString.Points.IndexOf(point);
+            if (index < 0)
+                return index;
+            return self.SwitchIndex(index);
+        }
+
+        /// <summary>
         /// nearestからRnWay上の最も近い点を探す
         /// </summary>
         /// <param name="self"></param>
@@ -495,17 +520,18 @@ namespace PLATEAU.RoadNetwork.Structure
         public static bool FindNearestPoint(this RnWay self, Vector3 pos, out Vector3 nearest)
         {
             nearest = Vector3.zero;
-            float len = float.MaxValue;
+            var minLen = float.MaxValue;
             foreach (var s in GeoGraphEx.GetEdges(self, false))
             {
                 var v = new LineSegment3D(s.Item1, s.Item2).GetNearestPoint(pos);
-                if ((nearest - v).sqrMagnitude < len)
+                var len = (v - pos).sqrMagnitude;
+                if (len < minLen)
                 {
-                    len = (nearest - v).sqrMagnitude;
+                    minLen = len;
                     nearest = v;
                 }
             }
-            return len < float.MaxValue;
+            return minLen < float.MaxValue;
         }
 
         /// <summary>

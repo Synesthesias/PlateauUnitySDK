@@ -1,17 +1,8 @@
-﻿using JetBrains.Annotations;
-using PLATEAU.PolygonMesh;
-using PLATEAU.RoadNetwork;
-using PLATEAU.RoadNetwork.CityObject;
+﻿using PLATEAU.RoadNetwork.CityObject;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
-using System.Reflection;
-using System.Text.RegularExpressions;
 using UnityEngine;
-using UnityEngine.Assertions;
-using UnityEngine.Assertions.Comparers;
-using static PLATEAU.Util.GeoGraph.GeoGraph2D;
 using Vector2 = UnityEngine.Vector2;
 using Vector3 = UnityEngine.Vector3;
 
@@ -38,6 +29,68 @@ namespace PLATEAU.Util.GeoGraph
             {
                 return obj.GetHashCode();
             }
+        }
+
+        /// <summary>
+        /// 凸包を計算する. 戻り値の0番,^1番は同じものが入る
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="vertices"></param>
+        /// <param name="toVec3"></param>
+        /// <param name="plane"></param>
+        /// <param name="sameLineTolerance">同一直線の許容誤差. ２つのベクトルの内積が1-これ以上</param>
+        /// <returns></returns>
+        public static List<T> ComputeConvexVolume<T>(IEnumerable<T> vertices, Func<T, Vector3> toVec3, AxisPlane plane, float sameLineTolerance = 0f)
+        {
+            Vector3 ToVec2(T a) => toVec3(a).GetTangent(plane);
+            // リストの最後の辺が時計回りになっているかを確認
+            bool IsLastClockwise(List<T> list)
+            {
+                if (list.Count <= 2)
+                    return true;
+                var v1 = ToVec2(list[^1]);
+                var v2 = ToVec2(list[^2]);
+                var v3 = ToVec2(list[^3]);
+                var d1 = v1 - v2;
+                var d2 = v2 - v3;
+                var v = Vector2Ex.Cross(d1, d2);
+                if (v > 0)
+                    return true;
+                // 同一直線の場合は採用とする. sameLineTolerance = 0の場合は同一直線を無視する
+                return Vector2.Dot(d1.normalized, d2.normalized) > 1f - sameLineTolerance;
+            }
+            var compare = new Vector2Equitable(Epsilon);
+            var sortedVertices = vertices.OrderBy(v => ToVec2(v).x).ThenBy(v => ToVec2(v).y).ToList();
+            for (var i = 0; i < sortedVertices.Count - 1;)
+            {
+                if (compare.Equals(ToVec2(sortedVertices[i]), ToVec2(sortedVertices[i + 1])))
+                    sortedVertices.RemoveAt(i + 1);
+                else
+                    i++;
+            }
+            if (sortedVertices.Count <= 2)
+                return new List<T>();
+
+            // 上方の凸形状計算
+            var ret = new List<T> { sortedVertices[0], sortedVertices[1] };
+
+            for (var i = 2; i < sortedVertices.Count; i++)
+            {
+                ret.Add(sortedVertices[i]);
+                while (IsLastClockwise(ret) == false)
+                    ret.RemoveAt(ret.Count - 2);
+            }
+
+            // 下方の凸形状計算
+            ret.Add(sortedVertices[^2]);
+            for (var i = sortedVertices.Count - 3; i >= 0; --i)
+            {
+                ret.Add(sortedVertices[i]);
+                while (IsLastClockwise(ret) == false)
+                    ret.RemoveAt(ret.Count - 2);
+            }
+
+            return ret;
         }
 
         /// <summary>

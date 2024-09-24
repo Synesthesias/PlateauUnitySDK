@@ -131,17 +131,18 @@ namespace PLATEAU.Util.GeoGraph
         /// <summary>
         /// 引数の半直線(origin,dir)との交点を返す
         /// </summary>
+        /// <param name="self"></param>
         /// <param name="origin"></param>
         /// <param name="dir"></param>
         /// <param name="intersection"></param>
-        /// <param name="t1"></param>
-        /// <param name="t2"></param>
+        /// <param name="t1">intersection = self.Lerp(t1)となるt1が入る</param>
+        /// <param name="t2">intersection = origin + dir * t2となるt2が入る</param>
         /// <returns></returns>
         public static bool TryHalfLineIntersection(this LineSegment2D self, Vector2 origin, Vector2 dir, out Vector2 intersection, out float t1,
             out float t2)
         {
-            return LineUtil.HalfLineSegmentIntersection(new Ray2D(origin, dir), self.Start, self.End, out intersection, out t1,
-                out t2);
+            return LineUtil.HalfLineSegmentIntersection(new Ray2D(origin, dir), self.Start, self.End, out intersection, out t2,
+                out t1);
         }
 
         /// <summary>

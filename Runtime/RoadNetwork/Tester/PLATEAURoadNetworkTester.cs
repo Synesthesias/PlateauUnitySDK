@@ -1,5 +1,4 @@
 ﻿using PLATEAU.CityGML;
-using PLATEAU.RoadNetwork.CityObject;
 using PLATEAU.RoadNetwork.Factory;
 using PLATEAU.RoadNetwork.Graph;
 using PLATEAU.RoadNetwork.Structure.Drawer;
