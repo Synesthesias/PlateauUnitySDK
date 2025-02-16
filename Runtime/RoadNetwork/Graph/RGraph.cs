@@ -18,29 +18,33 @@ namespace PLATEAU.RoadNetwork.Graph
         /// </summary>
         Empty = 0,
         /// <summary>
+        /// 不正な値(今後要素が増えると後ろに追加する必要があるので最初に定義する)
+        /// </summary>
+        Undefined = 1 << 0,
+        /// <summary>
         /// 車道
         /// </summary>
-        Road = 1 << 0,
+        Road = 1 << 1,
         /// <summary>
         /// 歩道
         /// </summary>
-        SideWalk = 1 << 1,
+        SideWalk = 1 << 2,
         /// <summary>
         /// 中央分離帯
         /// </summary>
-        Median = 1 << 2,
+        Median = 1 << 3,
         /// <summary>
         /// 高速道路
         /// </summary>
-        HighWay = 1 << 3,
+        HighWay = 1 << 4,
         /// <summary>
-        /// 不正な値
+        /// 車線. Lod3.1以上だとこれが車線を表す
         /// </summary>
-        Undefined = 1 << 4,
+        Lane = 1 << 5,
         /// <summary>
         /// 全ての値
         /// </summary>
-        All = ~0
+        All = ~(0)
     }
 
     public static class RRoadTypeEx
@@ -85,6 +89,15 @@ namespace PLATEAU.RoadNetwork.Graph
             return (self & RRoadTypeMask.Median) != 0;
         }
 
+        /// <summary>
+        /// 車線
+        /// </summary>
+        /// <param name="self"></param>
+        /// <returns></returns>
+        public static bool IsLane(this RRoadTypeMask self)
+        {
+            return (self & RRoadTypeMask.Lane) != 0;
+        }
         /// <summary>
         /// selfがflagのどれかを持っているかどうか
         /// </summary>

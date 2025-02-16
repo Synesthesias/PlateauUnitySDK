@@ -216,7 +216,7 @@ namespace PLATEAU.RoadNetwork.Structure
             foreach (var intersectionBorder in intersectionNeighborBorder)
             {
                 // bool wasFound = false;
-                foreach (var border in road.GetBorders())
+                foreach (var border in road.GetBorders().Select(x => x.BorderWay))
                 {
                     if (intersectionBorder == border)
                     {

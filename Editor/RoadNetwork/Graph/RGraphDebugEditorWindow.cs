@@ -1,13 +1,11 @@
 ﻿using PLATEAU.RoadNetwork;
 using PLATEAU.RoadNetwork.Graph;
-using PLATEAU.RoadNetwork.Structure;
 using PLATEAU.RoadNetwork.Util;
 using PLATEAU.Util;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 namespace PLATEAU.Editor.RoadNetwork.Graph
 {
@@ -49,6 +47,8 @@ namespace PLATEAU.Editor.RoadNetwork.Graph
         FaceEdit faceEdit = new FaceEdit();
         // FoldOutの状態を保持する
         private HashSet<object> FoldOuts { get; } = new();
+        // Trackのスクロール位置
+        public Vector2 trackScrollPosition;
 
         private class FaceEdit
         {
@@ -266,12 +266,17 @@ namespace PLATEAU.Editor.RoadNetwork.Graph
 
             if (RnEditorUtil.Foldout($"Face[{graph.Faces.Count}]", FoldOuts, "Face"))
             {
+                using var scope = new EditorGUILayout.ScrollViewScope(trackScrollPosition);
+                trackScrollPosition = scope.scrollPosition;
                 foreach (var face in graph.Faces)
                 {
                     if (IsSceneSelected(face) == false && InstanceHelper.SelectedObjects.Contains(face) == false)
                         continue;
-                    RnEditorUtil.Separator();
-                    faceEdit.Update(this, face);
+                    if (RnEditorUtil.Foldout($"{face.GetDebugLabelOrDefault()}[E{face.Edges.Count}]", FoldOuts, face))
+                    {
+                        using var indent = new EditorGUI.IndentLevelScope();
+                        faceEdit.Update(this, face);
+                    }
                 }
             }
         }

@@ -1155,6 +1155,47 @@ namespace PLATEAU.Util.GeoGraph
         /// <param name="rayB"></param>
         /// <param name="p"></param>
         /// <returns></returns>
+        public static Ray2D LerpRay2(Ray2D rayA, Ray2D rayB, float p)
+        {
+            static Vector2 Get(Ray2D r1, Ray2D r2, Vector2 a, float p)
+            {
+                var b = r2.GetNearestPoint(a);
+                if ((a - b).sqrMagnitude < Epsilon)
+                {
+                    return a;
+                }
+                var c = r1.GetNearestPoint(b);
+
+                var ab = (b - a).magnitude;
+                var bc = (c - b).magnitude;
+
+                var x = ab * (1 - p);
+                var t = x / (x + bc * p);
+                return Vector2.Lerp(a, b, t);
+            }
+
+            p = 1 - Mathf.Clamp01(p);
+            var p1 = Get(rayA, rayB, rayA.origin, p);
+            var p2 = Get(rayA, rayB, rayA.origin + rayA.direction * 10, p);
+            var dir = (p2 - p1).normalized;
+            if (Vector2.Dot(dir, rayA.direction) < 0)
+                dir = -dir;
+            return new Ray2D(p1, dir);
+        }
+
+        /// <summary>
+        /// 直線l上の点から直線a,bへの距離がp : 1-pとなるような直線lを返す
+        /// 0.5だと中間の角度が返る
+        /// \ p  |1-p /
+        ///  \   |   /
+        ///   \  |  / 
+        ///  a \ | / b
+        ///     \ /
+        /// </summary>
+        /// <param name="rayA"></param>
+        /// <param name="rayB"></param>
+        /// <param name="p"></param>
+        /// <returns></returns>
         public static Ray2D LerpRay(Ray2D rayA, Ray2D rayB, float p)
         {
             // 2線が平行の時は交点が無いので特別処理
@@ -1527,7 +1568,21 @@ namespace PLATEAU.Util.GeoGraph
             return innerSegments;
         }
 
-
+        /// <summary>
+        /// verticesで表される線分を, toleranceAngleDeg/midPointToleranceを使った同一直線判定でグルーピングする
+        /// 戻り値はグループの始点インデックス
+        /// 例) (v0, v1, v2, v3, v4, v5)
+        /// v0~v1, v1~v5が同一直線なら[0, 2]が返る
+        /// v0~v5が同一直線なら[0]が返る
+        /// </summary>
+        /// <param name="vertices"></param>
+        /// <param name="toleranceAngleDeg"></param>
+        /// <param name="midPointTolerance"></param>
+        /// <returns></returns>
+        public static List<int> SplitByCollinearSegment(IReadOnlyList<Vector2> vertices, float toleranceAngleDeg = 0f, float midPointTolerance = 0f, bool checkAdjustSegmentAngleOnly = false)
+        {
+            return GeoGraphEx.SplitByCollinearSegment(vertices, v => (Vector3)v, toleranceAngleDeg, midPointTolerance);
+        }
 
         [Serializable]
         public class DebugFindOppositeOption
@@ -1536,6 +1591,73 @@ namespace PLATEAU.Util.GeoGraph
             public Color showCenterLineColor = Color.blue;
             public int pattern = 0;
         }
+
+        /// <summary>
+        /// edgesで定義された線分リストのedgeBaseIndex番の辺を基準に, 同一直線となる辺を探す.(許容誤差はtoleranceAngleDegForMidEdge)
+        /// </summary>
+        /// <param name="edgeBaseIndex"></param>
+        /// <param name="edges"></param>
+        /// <param name="toleranceAngleDegForMidEdge"></param>
+        /// <returns></returns>
+        public static List<int> FindCollinearRange(
+            int edgeBaseIndex
+            , IReadOnlyList<LineSegment2D> edges
+            , float toleranceAngleDegForMidEdge = 20f
+            , int? startIndex = null
+            , int? endIndex = null
+            )
+        {
+            startIndex ??= 0;
+            endIndex ??= edges.Count - 1;
+
+            var ret = new List<int> { edgeBaseIndex };
+            var stop = new[] { false, false };
+            while (stop.Contains(false) && ret.Count < edges.Count - 1)
+            {
+                // 0 : left用
+                // 1 : right用
+                var infos = new[]
+                {
+                    new {now=ret.First(), d = -1 },
+                    new {now=ret.Last() , d = +1 }
+                };
+                // 差が小さいほうから見る
+                var es = Enumerable.Range(0, 2)
+                    // すでに停止している or 最後まで進んだら無視
+                    .Where(i => stop[i] == false && startIndex <= infos[i].now + infos[i].d && infos[i].now + infos[i].d <= endIndex)
+                    .Select(j =>
+                    {
+                        var info = infos[j];
+                        var e0 = edges[edgeBaseIndex];
+                        var e1 = edges[info.now + info.d];
+                        return new { i = j, index = info.now + info.d, ang = Vector2.Angle(e0.Direction, e1.Direction) };
+                    })
+                    .OrderBy(x => x.ang)
+                    .ToList();
+                if (es.Count == 0)
+                    break;
+                foreach (var e in es)
+                {
+                    if (e.ang > toleranceAngleDegForMidEdge)
+                    {
+                        stop[e.i] = true;
+                        continue;
+                    }
+
+                    if (e.i == 0)
+                    {
+                        ret.Insert(0, e.index);
+                    }
+                    else
+                    {
+                        ret.Add(e.index);
+                    }
+                }
+            }
+
+            return ret;
+        }
+
 
         /// <summary>
         /// verticesを始点終点から見ていき,お互い中心線を使って比較しながら中心の辺を表すインデックス配列を返す
@@ -1626,50 +1748,7 @@ namespace PLATEAU.Util.GeoGraph
 
             // ここに来る段階でleftIndex == rightIndex - 2のはず
             var edgeBaseIndex = (leftIndex + rightIndex) / 2;
-            var ret = new List<int> { edgeBaseIndex };
-            var stop = new[] { false, false };
-            while (stop.Contains(false) && ret.Count < edges.Count - 1)
-            {
-                // 0 : left用
-                // 1 : right用
-                var infos = new[]
-                {
-                    new {now=ret.First(), d = -1 },
-                    new {now=ret.Last() , d = +1 }
-                };
-                // 差が小さいほうから見る
-                var es = Enumerable.Range(0, 2)
-                    // すでに停止している or 最後まで進んだら無視
-                    .Where(i => stop[i] == false && startIndex <= infos[i].now + infos[i].d && infos[i].now + infos[i].d <= endIndex)
-                    .Select(j =>
-                    {
-                        var info = infos[j];
-                        var e0 = edges[edgeBaseIndex];
-                        var e1 = edges[info.now + info.d];
-                        return new { i = j, index = info.now + info.d, ang = Vector2.Angle(e0.Direction, e1.Direction) };
-                    })
-                    .OrderBy(x => x.ang)
-                    .ToList();
-                if (es.Count == 0)
-                    break;
-                foreach (var e in es)
-                {
-                    if (e.ang > toleranceAngleDegForMidEdge)
-                    {
-                        stop[e.i] = true;
-                        continue;
-                    }
-
-                    if (e.i == 0)
-                    {
-                        ret.Insert(0, e.index);
-                    }
-                    else
-                    {
-                        ret.Add(e.index);
-                    }
-                }
-            }
+            var ret = FindCollinearRange(edgeBaseIndex, edges, toleranceAngleDegForMidEdge, startIndex, endIndex);
             // edge -> 頂点の配列に戻すために最後のインデックスを足す
             ret.Add(ret.Last() + 1);
             return ret;

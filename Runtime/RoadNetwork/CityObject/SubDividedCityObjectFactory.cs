@@ -366,6 +366,8 @@ namespace PLATEAU.RoadNetwork.CityObject
         /// <returns></returns>
         internal static ConvertCityObjectResult ConvertCityObjects(IEnumerable<PLATEAUCityObjectGroup> cityObjectGroups, bool useContourMesh = true)
         {
+            using var progressBar = new ProgressDisplayDialogue();
+            using var _ = new DebugTimer("ConvertCityObjects");
             // NOTE : CityGranularityConverterを参考
             var cityInfos = new List<CityObjectInfo>();
             foreach (var cityObjectGroup in cityObjectGroups)
@@ -402,14 +404,33 @@ namespace PLATEAU.RoadNetwork.CityObject
             var cco = new SubDividedCityObject(dstModel, attrHelper);
 
             var ret = new ConvertCityObjectResult();
-            foreach (var co in cityInfos)
+
+
+            // 高速化の為, 最初にテーブルを作っておく
+            Dictionary<string, SubDividedCityObject> nameToSubDividedCityObject = new Dictionary<string, SubDividedCityObject>();
+            foreach (var child in cco.GetAllChildren())
             {
+                if (child == null)
+                    continue;
+                //// 最小の単位だけ使うので親ポリゴンは無視
+                //if (child.Children.Any())
+                //    continue;
+                //// メッシュないものも無視
+                //if (child.Meshes.Any() == false)
+                //    continue;
+                nameToSubDividedCityObject.TryAdd(child.Name, child);
+            }
+
+            for (var i = 0; i < cityInfos.Count; ++i)
+            {
+                var co = cityInfos[i];
                 if (co.Transform == null)
                 {
                     Debug.Log("skipping deleted game object.");
                     continue;
                 }
-                var ccoChild = cco.GetAllChildren().FirstOrDefault(c => c != null && c.Name == co.Transform.name);
+                progressBar.SetProgress("最小地物分解", 100f * i / cityInfos.Count, "オブジェクト分解中");
+                var ccoChild = nameToSubDividedCityObject.GetValueOrDefault(co.Transform.name);
                 if (ccoChild == null)
                     continue;
                 ccoChild.SetCityObjectGroup(co.CityObjectGroup);
@@ -452,12 +473,16 @@ namespace PLATEAU.RoadNetwork.CityObject
             }
             ret.ConvertedCityObjects.AddRange(cco.GetAllChildren().Where(c => c.Children.Any() == false && c.Meshes.Any()));
 
-            foreach (var c in ret.ConvertedCityObjects)
+            //foreach (var c in ret.ConvertedCityObjects)
+            for (var i = 0; i < ret.ConvertedCityObjects.Count; ++i)
             {
+                var c = ret.ConvertedCityObjects[i];
+                progressBar.SetProgress("最小地物分解", 100f * i / ret.ConvertedCityObjects.Count, "頂点チェック中");
                 // 全く同じ頂点を結合する
                 foreach (var m in c.Meshes)
                     m.VertexReduction();
             }
+
             return ret;
         }
 

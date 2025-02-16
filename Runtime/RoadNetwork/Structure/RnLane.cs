@@ -297,7 +297,7 @@ namespace PLATEAU.RoadNetwork.Structure
 
             foreach (var n in Parent.GetNeighborRoads())
             {
-                if (n.GetBorders().Any(border.IsSameLineReference))
+                if (n.GetBorders().Select(x => x.BorderWay).Any(border.IsSameLineReference))
                     yield return n;
             }
         }

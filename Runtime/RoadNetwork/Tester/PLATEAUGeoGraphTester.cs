@@ -252,8 +252,9 @@ namespace PLATEAU.RoadNetwork.Tester
                             foreach (var indices in polyIndices)
                             {
                                 var obj = new GameObject($"{so.Name}_{num++}");
-                                obj.AddComponent<PLATEAUGeoGraphTesterLineString>();
+                                var comp = obj.AddComponent<PLATEAUGeoGraphTesterLineString>();
                                 obj.transform.parent = transform;
+                                comp.LineString.plane = AxisPlane.Xz;
                                 for (var i = 0; i < indices.Count; i++)
                                 {
                                     var v0 = mesh.Vertices[indices[i]];

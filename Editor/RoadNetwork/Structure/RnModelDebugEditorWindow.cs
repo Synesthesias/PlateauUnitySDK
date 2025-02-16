@@ -429,6 +429,16 @@ namespace PLATEAU.Editor.RoadNetwork.Structure
                         ShowLabel("From", intersection.FindEdges(track.FromBorder).FirstOrDefault());
                         ShowLabel("To", intersection.FindEdges(track.ToBorder).FirstOrDefault());
                         track.TurnType = (RnTurnType)EditorGUILayout.EnumPopup("TurnType", track.TurnType);
+                        if (GUILayout.Button("Build Track"))
+                        {
+                            work.DelayExec.Add(() =>
+                            {
+                                var op = new BuildTrackOption();
+                                op.TargetBorderLineStrings.Add(track.FromBorder.LineString);
+                                op.TargetBorderLineStrings.Add(track.ToBorder.LineString);
+                                intersection.BuildTracks(op);
+                            });
+                        }
                     }
                 }
             }

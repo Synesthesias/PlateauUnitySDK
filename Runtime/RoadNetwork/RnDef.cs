@@ -47,4 +47,12 @@ namespace PLATEAU.RoadNetwork
             return v.ToVector3(Plane, a);
         }
     }
+
+    /// <summary>
+    /// デバッグ用の定数設定. (基本的にRelease版では全て切られる)
+    /// </summary>
+    internal static class RnDebugDef
+    {
+        public static readonly bool ShowDetailLog = false;
+    }
 }

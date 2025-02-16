@@ -1,8 +1,10 @@
 ﻿using PLATEAU.RoadNetwork.CityObject;
+using PLATEAU.RoadNetwork.Graph;
 using PLATEAU.RoadNetwork.Util;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
+using UnityEngine;
 
 namespace PLATEAU.Editor.RoadNetwork.CityObject
 {
@@ -27,6 +29,9 @@ namespace PLATEAU.Editor.RoadNetwork.CityObject
 
         public IInstanceHelper InstanceHelper { get; set; }
 
+        private HashSet<object> Foldouts { get; } = new();
+        private RRoadTypeMask filterMask = RRoadTypeMask.All;
+
         public void EditSubDividedCityObject(SubDividedCityObject e)
         {
             if (e == null)
@@ -42,6 +47,11 @@ namespace PLATEAU.Editor.RoadNetwork.CityObject
                     EditorGUILayout.LabelField(root.GmlID);
                     EditorGUILayout.EnumFlagsField("Type", root.GetRoadType());
                 }
+
+                if (RnEditorUtil.Foldout("Json", Foldouts, (e, "Json")))
+                {
+                    EditorGUILayout.TextArea(e.SerializedCityObjects);
+                }
             }
 
             RnEditorUtil.Separator();
@@ -50,10 +60,13 @@ namespace PLATEAU.Editor.RoadNetwork.CityObject
             {
                 foreach (var child in e.Children)
                 {
-                    RnEditorUtil.Separator();
-                    using (new EditorGUI.IndentLevelScope())
+                    if (RnEditorUtil.Foldout(child.Name, Foldouts, child))
                     {
-                        EditSubDividedCityObject(child);
+                        using (new EditorGUI.IndentLevelScope())
+                        {
+                            using var _ = new EditorGUI.IndentLevelScope();
+                            EditSubDividedCityObject(child);
+                        }
                     }
                 }
             }
@@ -74,21 +87,27 @@ namespace PLATEAU.Editor.RoadNetwork.CityObject
                 return;
             }
 
-
-            RnEditorUtil.Separator();
+            if (GUILayout.Button("Clear Selected"))
+                InstanceHelper.TargetCityObjects.Clear();
 
             using (new EditorGUI.DisabledScope(true))
             {
                 EditorGUILayout.IntField("CityObjects", cityObjects.CityObjects.Count);
             }
 
+            filterMask = (RRoadTypeMask)EditorGUILayout.EnumPopup("Filter", filterMask);
             RnEditorUtil.Separator();
             foreach (var cog in cityObjects.CityObjects)
             {
+                if ((filterMask & cog.SelfRoadType) == 0)
+                    continue;
                 if (InstanceHelper.IsTarget(cog) || InstanceHelper.TargetCityObjects.Contains(cog))
                 {
-                    RnEditorUtil.Separator();
-                    EditSubDividedCityObject(cog);
+                    if (RnEditorUtil.Foldout(cog.Name, Foldouts, cog))
+                    {
+                        using var _ = new EditorGUI.IndentLevelScope();
+                        EditSubDividedCityObject(cog);
+                    }
                 }
             }
         }

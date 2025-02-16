@@ -98,6 +98,63 @@ namespace Tests.RoadNetworkTest
                 );
         }
 #endif
+        [Test()]
+        public void GeoGraph2DLerpRayTest()
+        {
+            var triCount = 1000;
+            var posRange = 1000f;
+            var pCount = 100;
+
+            float RandPos()
+            {
+                return Random.Range(-posRange, posRange);
+            }
+            Ray2D CreateRandomRay()
+            {
+                var dir = Vector2Ex.Polar2Cart(Random.Range(0, 360));
+                return new Ray2D(new Vector2(RandPos(), RandPos()), dir);
+            }
+
+            void Check(Ray2D a, Ray2D b, Ray2D ray, float p)
+            {
+                for (var i = 0; i < 1000; i++)
+                {
+                    var len = Random.Range(-10000f, 10000f);
+
+                    var pos = ray.origin + ray.direction * len;
+
+                    var posA = a.GetNearestPoint(pos);
+                    var posB = b.GetNearestPoint(pos);
+
+                    var lenA = (posA - pos).magnitude;
+                    var lenB = (posB - pos).magnitude;
+
+                    // lenA : lenB = p : (1-p)
+                    var x = lenA * (1 - p);
+                    var y = lenB * p;
+
+                    var p2 = lenA / (lenA + lenB);
+                    if (Mathf.Abs(p2 - p) > 1e-1f)
+                    {
+                        var label = $"[{i}] {p} != {p2}. {a.ToLogString()}/{b.ToLogString()}/{ray.ToLogString()} {x} != {y}";
+                        Assert.IsTrue(false, label);
+                    }
+                }
+            }
+
+            foreach (var i in Enumerable.Range(0, triCount))
+            {
+                var a = CreateRandomRay();
+                var b = CreateRandomRay();
+
+                foreach (var p in Enumerable.Range(0, pCount + 1).Select(x => 1f * x / pCount))
+                {
+                    var ray = GeoGraph2D.LerpRay2(a, b, p);
+                    Check(a, b, ray, p);
+                }
+            }
+        }
+
         /// <summary>
         /// RnLineString.GetAdvancedPointのテスト
         /// </summary>

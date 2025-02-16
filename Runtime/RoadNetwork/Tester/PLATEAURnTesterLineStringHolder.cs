@@ -9,7 +9,7 @@ namespace PLATEAU.RoadNetwork.Tester
     {
         PLATEAURnTesterLineString lineString;
 
-        private PLATEAURnTesterLineString LineString
+        public PLATEAURnTesterLineString LineString
         {
             get
             {

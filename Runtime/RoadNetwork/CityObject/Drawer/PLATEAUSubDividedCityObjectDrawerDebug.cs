@@ -1,4 +1,5 @@
-﻿using PLATEAU.RoadNetwork.Util;
+﻿using PLATEAU.RoadNetwork.Graph;
+using PLATEAU.RoadNetwork.Util;
 using PLATEAU.Util;
 using System;
 using System.Collections.Generic;
@@ -21,6 +22,7 @@ namespace PLATEAU.RoadNetwork.CityObject.Drawer
         public bool showOutline = false;
         public int showVertexIndexFontSize = 8;
 
+        public RRoadTypeMask showRRoadTypeMask = RRoadTypeMask.All;
         public HashSet<SubDividedCityObject> TargetCityObjects { get; } = new();
         // --------------------
         // end:フィールド
@@ -56,8 +58,10 @@ namespace PLATEAU.RoadNetwork.CityObject.Drawer
 
                 var coVisible =
                     item.Visible &&
-                    (!TargetCityObjects.Any() || TargetCityObjects.Contains(item)) &&
-                    (onlySelectedCityObjectGroupVisible == false || RnEx.GetSceneSelectedCityObjectGroups().Any(cog => item.CityObjectGroup == cog));
+                    (!TargetCityObjects.Any() || TargetCityObjects.Contains(item))
+                    && (onlySelectedCityObjectGroupVisible == false || RnEx.GetSceneSelectedCityObjectGroups().Any(cog => item.CityObjectGroup == cog))
+                    && ((item.GetRoadType(true) & showRRoadTypeMask) != 0)
+                    ;
 
                 if (coVisible == false)
                 {

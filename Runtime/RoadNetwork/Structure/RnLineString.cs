@@ -495,9 +495,9 @@ namespace PLATEAU.RoadNetwork.Structure
         {
             foreach (var item in self.GetEdges().Select((edge, i) => new { edge, i }))
             {
-                if (item.edge.TryLineIntersectionBy2D(ray.origin, ray.direction, axis, -1f, out var p, out var t1, out var t2))
+                if (item.edge.TryLineIntersectionBy2D(ray.origin, ray.direction, axis, -1f, out var p, out var rayOffset, out var edgeT))
                 {
-                    yield return (p, item.i + t1);
+                    yield return (p, item.i + edgeT);
                 }
             }
         }
@@ -566,7 +566,7 @@ namespace PLATEAU.RoadNetwork.Structure
         /// <param name="self"></param>
         /// <param name="index"></param>
         /// <returns></returns>
-        public static Vector3 GetPoint(this RnLineString self, float index)
+        public static Vector3 GetVertexByFloatIndex(this RnLineString self, float index)
         {
             var i1 = (int)index;
             var i2 = i1 + 1;

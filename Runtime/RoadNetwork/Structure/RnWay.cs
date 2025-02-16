@@ -449,7 +449,7 @@ namespace PLATEAU.RoadNetwork.Structure
                 // #TODO : vnが0ベクトルの時の対応
                 delta = d * Vector3.Dot(vn, en1);
             }
-            
+
             // 凹凸のある線では、法線方向に移動すると線が交差することがあるので、交差を取り除く
             RemoveIntersection();
         }
@@ -560,7 +560,7 @@ namespace PLATEAU.RoadNetwork.Structure
         public void SetPointsKeepReference(IEnumerable<Vector3> nextPointsArg)
         {
             var nextPoints = nextPointsArg.ToArray();
-            if(nextPoints.Length == 0) LineString.Points.Clear();
+            if (nextPoints.Length == 0) LineString.Points.Clear();
             if (Count == nextPoints.Length)
             {
                 for (int i = 0; i < Count; i++)
@@ -576,7 +576,7 @@ namespace PLATEAU.RoadNetwork.Structure
             var lastRef = GetPoint(-1);
             firstRef.Vertex = nextPoints[0];
             lastRef.Vertex = nextPoints[^1];
-            if(IsReversed) Array.Reverse(nextPoints);
+            if (IsReversed) Array.Reverse(nextPoints);
             LineString = RnLineString.Create(nextPoints.Select(p => new RnPoint(p)));
             SetPoint(0, firstRef);
             SetPoint(-1, lastRef);
@@ -588,9 +588,9 @@ namespace PLATEAU.RoadNetwork.Structure
         public void SetPointsUnkeepReference(IEnumerable<Vector3> nextPointsArg)
         {
             var nextPoints = nextPointsArg.ToArray();
-            if(IsReversed) Array.Reverse(nextPoints);
+            if (IsReversed) Array.Reverse(nextPoints);
             LineString.Points.Clear();
-            foreach(var p in nextPoints)
+            foreach (var p in nextPoints)
             {
                 LineString.AddPoint(new RnPoint(p));
             }
@@ -950,6 +950,45 @@ namespace PLATEAU.RoadNetwork.Structure
             }
 
             return pos;
+        }
+
+        /// <summary>
+        /// selfにsrcを結合しようとする(内部のLineStringに結合しようとする).結合できない場合はfalseを返す
+        /// self (v0, v1, v2, v3...vn) src(v0', v1', v2', v3'...vm')の場合
+        /// v0 == v0'だと, srcを逆順にselfの先頭に追加 (vm'... v3', v2', v1', v0'(v0), v1, v2, v3...vn)となる
+        /// vn == vm'だと, srcを逆順にselfの末尾に追加 (v0, v1, v2, v3...vn(vm')... v3', v2', v1', v0')となる
+        /// v0 == vm'だと, srcをそのままselfの先頭に追加 (v0', v1', v2', v3'...vm'(v0), v1, v2, v3...vn)となる
+        /// vn == v0'だと, srcをそのままselfの末尾に追加 (v0, v1, v2, v3...vn(v0'), v1', v2', v3'...vm')となる
+        /// selfとsrcの最初と最後のポイントを見て, どっちの方向に結合するかを決める
+        /// </summary>
+        /// <param name="self"></param>
+        /// <param name="src"></param>
+        /// <param name="pointDistanceTolerance"></param>
+        /// <returns></returns>
+        public static bool TryMergePointsToLineString(this RnWay self, RnWay src, float pointDistanceTolerance)
+        {
+            if (self.GetPoint(0).IsSamePoint(src.GetPoint(0), pointDistanceTolerance))
+            {
+                self.AppendFront2LineString(src.ReversedWay());
+            }
+            else if (self.GetPoint(0).IsSamePoint(src.GetPoint(-1), pointDistanceTolerance))
+            {
+                self.AppendFront2LineString(src);
+            }
+            else if (self.GetPoint(-1).IsSamePoint(src.GetPoint(0), pointDistanceTolerance))
+            {
+                self.AppendBack2LineString(src);
+            }
+            else if (self.GetPoint(-1).IsSamePoint(src.GetPoint(-1), pointDistanceTolerance))
+            {
+                self.AppendBack2LineString(src.ReversedWay());
+            }
+            else
+            {
+                return false;
+            }
+
+            return true;
         }
     }
 }

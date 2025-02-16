@@ -844,7 +844,11 @@ namespace PLATEAU.RoadNetwork.Structure
 
             medianWidth = Mathf.Max(1, medianWidth);
             // 1番小さい幅レーンの道幅が1[m]になるように中央分離帯を作成する
-            var width = Roads.Min(r => r.AllLanesWithMedian.Sum(l => l.CalcWidth()));
+            float MinLaneWidth(RnRoad r)
+            {
+                return r.AllLanesWithMedian.Sum(l => l.CalcWidth());
+            }
+            var width = Roads.Min(MinLaneWidth);
             var medianRate = Mathf.Min(maxMedianLaneRate, medianWidth / width);
             SetLaneCountWithMedian(GetLeftLaneCount(), GetRightLaneCount(), medianRate);
             return true;

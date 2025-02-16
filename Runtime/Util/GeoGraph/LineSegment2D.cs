@@ -85,12 +85,12 @@ namespace PLATEAU.Util.GeoGraph
         /// <param name="v0"></param>
         /// <param name="v1"></param>
         /// <param name="intersection"></param>
-        /// <param name="t1"></param>
-        /// <param name="t2"></param>
+        /// <param name="selfT">intersection = Mathf.Lerp(self.Start, self.End, selfT)となる値  </param>
+        /// <param name="otherT">intersection = Mathf.Lerp(v0, v1, otherT)となる値 </param>
         /// <returns></returns>
-        public static bool TrySegmentIntersection(this LineSegment2D self, Vector2 v0, Vector2 v1, out Vector2 intersection, out float t1, out float t2)
+        public static bool TrySegmentIntersection(this LineSegment2D self, Vector2 v0, Vector2 v1, out Vector2 intersection, out float selfT, out float otherT)
         {
-            return LineUtil.SegmentIntersection(self.Start, self.End, v0, v1, out intersection, out t1, out t2);
+            return LineUtil.SegmentIntersection(self.Start, self.End, v0, v1, out intersection, out selfT, out otherT);
         }
         /// <summary>
         /// 引数の線分otherとの交点を返す
@@ -98,12 +98,12 @@ namespace PLATEAU.Util.GeoGraph
         /// <param name="self"></param>
         /// <param name="other"></param>
         /// <param name="intersection">交点</param>
-        /// <param name="t1"></param>
-        /// <param name="t2"></param>
+        /// <param name="selfT"> </param>
+        /// <param name="otherT"></param>
         public static bool TrySegmentIntersection(this LineSegment2D self, LineSegment2D other,
-            out Vector2 intersection, out float t1, out float t2)
+            out Vector2 intersection, out float selfT, out float otherT)
         {
-            return self.TrySegmentIntersection(other.Start, other.End, out intersection, out t1, out t2);
+            return self.TrySegmentIntersection(other.Start, other.End, out intersection, out selfT, out otherT);
         }
 
         /// <summary>
@@ -135,14 +135,14 @@ namespace PLATEAU.Util.GeoGraph
         /// <param name="origin"></param>
         /// <param name="dir"></param>
         /// <param name="intersection"></param>
-        /// <param name="t1">intersection = self.Lerp(t1)となるt1が入る</param>
-        /// <param name="t2">intersection = origin + dir * t2となるt2が入る</param>
+        /// <param name="selfT">intersection = self.Lerp(t1)となるt1が入る</param>
+        /// <param name="halfLineOffset">intersection = origin + dir * t2となるt2が入る</param>
         /// <returns></returns>
-        public static bool TryHalfLineIntersection(this LineSegment2D self, Vector2 origin, Vector2 dir, out Vector2 intersection, out float t1,
-            out float t2)
+        public static bool TryHalfLineIntersection(this LineSegment2D self, Vector2 origin, Vector2 dir, out Vector2 intersection
+            , out float halfLineOffset, out float selfT)
         {
-            return LineUtil.HalfLineSegmentIntersection(new Ray2D(origin, dir), self.Start, self.End, out intersection, out t2,
-                out t1);
+            return LineUtil.HalfLineSegmentIntersection(new Ray2D(origin, dir), self.Start, self.End, out intersection, out halfLineOffset,
+                out selfT);
         }
 
         /// <summary>
@@ -152,13 +152,13 @@ namespace PLATEAU.Util.GeoGraph
         /// <param name="origin"></param>
         /// <param name="dir"></param>
         /// <param name="intersection"></param>
-        /// <param name="t1"></param>
-        /// <param name="t2"></param>
+        /// <param name="lineLength">intersection = line.origin + line.direction * lineLengthとなる値</param>
+        /// <param name="segmentT">intersection = Vector2.LerpUnClamped(p1, p2, segmentT)となる値</param>
         /// <returns></returns>
-        public static bool TryLineIntersection(this LineSegment2D self, Vector2 origin, Vector2 dir, out Vector2 intersection, out float t1,
-            out float t2)
+        public static bool TryLineIntersection(this LineSegment2D self, Vector2 origin, Vector2 dir, out Vector2 intersection, out float lineLength,
+            out float segmentT)
         {
-            return LineUtil.LineSegmentIntersection(new Ray2D(origin, dir), self.Start, self.End, out intersection, out t1, out t2);
+            return LineUtil.LineSegmentIntersection(new Ray2D(origin, dir), self.Start, self.End, out intersection, out lineLength, out segmentT);
         }
 
         /// <summary>

@@ -479,10 +479,17 @@ namespace PLATEAU.RoadNetwork.Structure
                 if (visitedRoads.Contains(road))
                     continue;
 
-                var roadGroup = road.CreateRoadGroup();
-                foreach (var l in roadGroup.Roads)
-                    visitedRoads.Add(l);
-                roadGroup.MergeRoads();
+                try
+                {
+                    var roadGroup = road.CreateRoadGroup();
+                    foreach (var l in roadGroup.Roads)
+                        visitedRoads.Add(l);
+                    roadGroup.MergeRoads();
+                }
+                catch (Exception e)
+                {
+                    DebugEx.LogException(e);
+                }
             }
         }
 
@@ -527,7 +534,7 @@ namespace PLATEAU.RoadNetwork.Structure
         /// <param name="roadWidth"></param>
         /// <param name="rebuildTrack">レーン分割後に関連する交差点のトラックを再生成する</param>
         /// <param name="failedRoads"></param>
-        public void SplitLaneByWidth(float roadWidth, bool rebuildTrack, out List<ulong> failedRoads)
+        public void SplitLaneByWidth(float roadWidth, bool rebuildTrack, out List<ulong> failedRoads, Func<RnRoadGroup, bool> isTargetLaneSplit)
         {
             failedRoads = new List<ulong>();
             var visitedRoads = new HashSet<RnRoad>();
@@ -548,6 +555,10 @@ namespace PLATEAU.RoadNetwork.Structure
 
                     if (roadGroup.Roads.Any(l => l.MainLanes[0].HasBothBorder == false))
                         continue;
+
+                    if (isTargetLaneSplit(roadGroup) == false)
+                        continue;
+
                     var leftCount = roadGroup.GetLeftLaneCount();
                     var rightCount = roadGroup.GetRightLaneCount();
                     // すでにレーンが分かれている場合、左右で独立して分割を行う
@@ -585,11 +596,72 @@ namespace PLATEAU.RoadNetwork.Structure
 
         public void Check()
         {
+            // 隣接情報のチェック
+            Dictionary<RnRoadBase, Dictionary<RnRoadBase, List<RnLineString>>> borderTable = new();
+
+            void AddBorderInfo(RnRoadBase road)
+            {
+                var table = new Dictionary<RnRoadBase, List<RnLineString>>();
+                foreach (var a in road.GetBorders())
+                {
+                    if (a.NeighborRoad == null)
+                        continue;
+                    table.GetValueOrCreate(a.NeighborRoad).Add(a.BorderWay.LineString);
+                }
+
+                borderTable[road] = table;
+            }
+
             foreach (var road in roads)
+            {
                 road.Check();
+                AddBorderInfo(road);
+            }
 
             foreach (var inter in intersections)
+            {
                 inter.Check();
+                AddBorderInfo(inter);
+            }
+
+            foreach (var item in borderTable)
+            {
+                var aKey = item.Key;
+                var aVal = item.Value;
+                foreach (var aToB in aVal)
+                {
+                    var bKey = aToB.Key;
+                    var bVal = borderTable.GetValueOrDefault(bKey);
+
+                    void ShowErrorLog(string label)
+                    {
+                        DebugEx.LogError($"{label}[{aKey.GetTargetTransName()}]-[{bKey.GetTargetTransName()}]");
+                    }
+
+                    if (bVal == null)
+                    {
+                        ShowErrorLog("bKey not found");
+                        continue;
+                    }
+
+                    var bToA = bVal.GetValueOrDefault(aKey) ?? new();
+
+                    if (aToB.Value.Count != bToA.Count)
+                    {
+                        ShowErrorLog("Border Count Error");
+                    }
+                    else
+                    {
+                        foreach (var aBorder in aToB.Value)
+                        {
+                            if (bToA.Contains(aBorder) == false)
+                            {
+                                ShowErrorLog("Border Count Error");
+                            }
+                        }
+                    }
+                }
+            }
 
             foreach (var sw in sideWalks)
             {
@@ -1303,15 +1375,22 @@ namespace PLATEAU.RoadNetwork.Structure
         {
             HashSet<RnRoad> prevs = new();
             HashSet<RnRoad> nexts = new();
+            var failNum = 0;
             foreach (var road in self.Roads.ToList())
             {
                 //self.CalibrateIntersectionBorder(road, option);
-                self.TrySliceRoadHorizontalNearByBorder(road, option, out var prev, out var center, out var next);
+                var success =
+                    self.TrySliceRoadHorizontalNearByBorder(road, option, out var prev, out var center, out var next);
                 if (prev != null)
                     prevs.Add(prev);
                 if (next != null)
                     nexts.Add(next);
+
+                if (success == false)
+                    failNum++;
             }
+
+            DebugEx.Log($"CalibrateIntersectionBorderForAllRoad: {failNum}/{self.Roads.Count}");
 
             foreach (var p in prevs)
                 p.TryMerge2NeighborIntersection(RnLaneBorderType.Prev);

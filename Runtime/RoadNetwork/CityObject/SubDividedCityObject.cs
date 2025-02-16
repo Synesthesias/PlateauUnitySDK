@@ -249,6 +249,8 @@ namespace PLATEAU.RoadNetwork.CityObject
         [field: SerializeField]
         public RRoadTypeMask ParentRoadType { get; private set; } = RRoadTypeMask.Empty;
 
+        public string SerializedCityObjects => serializedCityObjects;
+
         public CityInfo.CityObjectList CityObjects
         {
             get
