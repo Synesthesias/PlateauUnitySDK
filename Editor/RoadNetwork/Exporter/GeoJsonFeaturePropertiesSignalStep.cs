@@ -11,6 +11,11 @@
         public string ID { get; set; }
 
         /// <summary>
+        /// 信号制御器の識別子
+        /// </summary>
+        public string SIGNALID { get; set; }
+
+        /// <summary>
         /// 制御パターン番号
         /// </summary>
         public string PATTERNID { get; set; }

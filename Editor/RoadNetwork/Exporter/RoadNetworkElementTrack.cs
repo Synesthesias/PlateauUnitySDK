@@ -79,6 +79,8 @@ namespace PLATEAU.Editor.RoadNetwork.Exporter
 
             var allWays = roadNetworkContext.RoadNetworkGetter.GetWays();
 
+            var allLineStrings = roadNetworkContext.RoadNetworkGetter.GetLineStrings();
+
             foreach (var link in links)
             {
                 var lanes = link.GetOriginLanes();
@@ -89,21 +91,23 @@ namespace PLATEAU.Editor.RoadNetwork.Exporter
 
                     var fromBorderID = OriginTrack.FromBorder.ID;
                     var fromLineID = allWays[fromBorderID].LineString.ID;
+                    var toBorderID = OriginTrack.ToBorder.ID;
+                    var toLineID = allWays[toBorderID].LineString.ID;
                     var nextBorderID = allLanes[lanes[i].ID].NextBorder.ID;
                     var prevBorderID = allLanes[lanes[i].ID].PrevBorder.ID;
                     if (nextBorderID >= allWays.Count || prevBorderID >= allWays.Count || nextBorderID < 0 || prevBorderID < 0) continue;
                     var nextWayID = allWays[nextBorderID].LineString.ID;
                     var prevWayID = allWays[prevBorderID].LineString.ID;
-                    if ( fromLineID == nextWayID ||
-                        fromLineID == prevWayID)
+                    if (allLineStrings[fromLineID] == allLineStrings[nextWayID] ||
+                        allLineStrings[fromLineID] == allLineStrings[prevWayID])
                     {
                         UpLink = link;
 
                         UpLane = i;
                     }
 
-                    if (allWays[OriginTrack.ToBorder.ID].LineString.ID == allWays[allLanes[lanes[i].ID].NextBorder.ID].LineString.ID ||
-                        allWays[OriginTrack.ToBorder.ID].LineString.ID == allWays[allLanes[lanes[i].ID].PrevBorder.ID].LineString.ID)
+                    if (allLineStrings[toLineID] == allLineStrings[nextWayID] ||
+                        allLineStrings[toLineID] == allLineStrings[prevWayID])
                     {
                         DownLink = link;
 

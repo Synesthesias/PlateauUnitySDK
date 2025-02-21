@@ -1,4 +1,7 @@
-﻿namespace PLATEAU.Editor.RoadNetwork.Exporter
+﻿using PLATEAU.Native;
+using UnityEngine;
+
+namespace PLATEAU.Editor.RoadNetwork.Exporter
 {
     /// <summary>
     /// 信号灯火機を表すクラス
@@ -19,6 +22,11 @@
         /// 設置されているリンク
         /// </summary>
         public RoadNetworkElementLink Link;
+
+        /// <summary>
+        /// 信号灯火器の座標
+        /// </summary>
+        public Vector3 Coord;
 
         /// <summary>
         /// コンストラクタ
@@ -75,7 +83,11 @@
         /// <returns>ジオメトリの位置</returns>
         public GeoJSON.Net.Geometry.Position GetGeometory()
         {
-            return Controller.GetGeometory();
+            Vector3 coord = Coord;
+
+            var geoCoord = roadNetworkContext.GeoReference.Unproject(new PlateauVector3d(coord.x, coord.y, coord.z));
+
+            return new GeoJSON.Net.Geometry.Position(geoCoord.Latitude, geoCoord.Longitude);
         }
     }
 }

@@ -38,12 +38,12 @@
         /// <summary>
         /// 制御サイクル長（秒）
         /// </summary>
-        public int INITCYCLE { get; set; }
+        public string INITCYCLE { get; set; }
 
         /// <summary>
         /// 現示数
         /// </summary>
-        public int PHASENUM { get; set; }
+        public string PHASENUM { get; set; }
 
         /// <summary>
         /// オフセットタイプ

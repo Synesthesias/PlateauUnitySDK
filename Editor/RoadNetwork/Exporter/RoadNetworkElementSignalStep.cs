@@ -101,17 +101,27 @@ namespace PLATEAU.Editor.RoadNetwork.Exporter
             return ret;
         }
 
+        public string GetSignalController()
+        {
+            return Controller?.ID;
+        }
+
         /// <summary>
         /// 信号灯火器のIDを取得します
         /// </summary>
         /// <returns>信号灯火器のID</returns>
         public string GetSignalLights()
         {
-            var ret = SignalLights[0].ID;
-
-            for (int i = 1; i < SignalLights.Count; i++)
+            var ret = string.Empty;
+            
+            if(SignalLights == null)
             {
-                ret += ":" + SignalLights[i].ID;
+                return ret;
+            }
+
+            for (int i = 0; i < SignalLights.Count; i++)
+            {
+                ret += (i == 0 ? "" : ":") + SignalLights[i].ID;
             }
 
             return ret;

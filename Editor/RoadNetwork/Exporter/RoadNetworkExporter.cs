@@ -75,7 +75,7 @@ namespace PLATEAU.Editor.RoadNetwork.Exporter
                 return;
             }
             rnStructureModel.Serialize();
-            
+
             roadNetworkContext = new RoadNetworkContext(rnStructureModel);
 
             if (!roadNetworkContext.IsInitSucceed) return;
@@ -90,11 +90,17 @@ namespace PLATEAU.Editor.RoadNetwork.Exporter
 
             ExportTrack(Nodes);
 
+#if PLATEAU_TOOLKIT
+
+            GenerateExpSignal(roadNetworkContext);
+
             ExportSignalController(SignalControllers);
 
             ExportSignalLight(SignalLights);
 
             ExportSignalStep(SignalSteps);
+
+#endif
         }
 
         /// <summary>
@@ -113,12 +119,16 @@ namespace PLATEAU.Editor.RoadNetwork.Exporter
 
             var simRoadNetworkNodes = new List<RoadNetworkElementNode>();
 
-            foreach (var node in roadNetworkRoads.Select((value, index) => new { value, index }))
+            foreach (var road in roadNetworkRoads.Select((value, index) => new { value, index }))
             {
-                if (node.value is RnDataIntersection)
+                var node = road.value as RnDataIntersection;
+
+                if (node == null)
                 {
-                    simRoadNetworkNodes.Add(new RoadNetworkElementNode(context, simRoadNetworkNodes.Count.ToString(), node.index));
+                    continue;
                 }
+
+                simRoadNetworkNodes.Add(new RoadNetworkElementNode(context, road.index.ToString(), road.index));
             }
 
             Nodes = simRoadNetworkNodes;
@@ -129,65 +139,72 @@ namespace PLATEAU.Editor.RoadNetwork.Exporter
 
             Dictionary<int, RoadNetworkElementNode> vNodes = new Dictionary<int, RoadNetworkElementNode>();
 
-            foreach (var link in roadNetworkLinks.Select((value, index) => new { value, index }))
+            foreach (var road in roadNetworkRoads.Select((value, index) => new { value, index }))
             {
+                var link = road.value as RnDataRoad;
+
+                if (link == null)
+                {
+                    continue;
+                }
+
                 // リンクが接続されていない場合はスキップ
-                if (!link.value.Next.IsValid && !link.value.Prev.IsValid)
+                if (!link.Next.IsValid && !link.Prev.IsValid)
                 {
                     Debug.LogWarning("Link is not connected to any node.");
 
                     continue;
                 }
 
-                var next = link.value.Next.IsValid ? roadNetworkRoads[link.value.Next.ID] as RnDataIntersection : null;
-                var prev = link.value.Prev.IsValid ? roadNetworkRoads[link.value.Prev.ID] as RnDataIntersection : null;
+                var next = link.Next.IsValid ? roadNetworkRoads[link.Next.ID] as RnDataIntersection : null;
+                var prev = link.Prev.IsValid ? roadNetworkRoads[link.Prev.ID] as RnDataIntersection : null;
 
                 //　仮想ノードが割り当てられている場合はそのノードを取得
-                RoadNetworkElementNode vNext = vNodes.ContainsKey(link.value.Next.ID) ? vNodes[link.value.Next.ID] : null;
-                RoadNetworkElementNode vPrev = vNodes.ContainsKey(link.value.Prev.ID) ? vNodes[link.value.Prev.ID] : null;
+                RoadNetworkElementNode vNext = vNodes.ContainsKey(link.Next.ID) ? vNodes[link.Next.ID] : null;
+                RoadNetworkElementNode vPrev = vNodes.ContainsKey(link.Prev.ID) ? vNodes[link.Prev.ID] : null;
 
                 // 接続先がリンクかつ仮想ノードが割り当てられていない場合は仮想ノードを生成
                 // 接続点ノードが割り当てられていない場合への対処
-                if (next == null && link.value.Next.IsValid && roadNetworkRoads[link.value.Next.ID] as RnDataRoad != null && vNext == null)
+                if (next == null && link.Next.IsValid && roadNetworkRoads[link.Next.ID] as RnDataRoad != null && vNext == null)
                 {
-                    vNext = new RoadNetworkElementNode(context, simRoadNetworkNodes.Count.ToString(), -1);
+                    vNext = new RoadNetworkElementNode(context, Nodes.Count.ToString(), -1);
 
-                    simRoadNetworkNodes.Add(vNext);
+                    Nodes.Add(vNext);
 
-                    vNodes.Add(link.index, vNext);
+                    vNodes.Add(road.index, vNext);
                 }
-                if (prev == null && link.value.Prev.IsValid && roadNetworkRoads[link.value.Prev.ID] as RnDataRoad != null && vPrev == null)
+                if (prev == null && link.Prev.IsValid && roadNetworkRoads[link.Prev.ID] as RnDataRoad != null && vPrev == null)
                 {
-                    vPrev = new RoadNetworkElementNode(context, simRoadNetworkNodes.Count.ToString(), -1);
+                    vPrev = new RoadNetworkElementNode(context, Nodes.Count.ToString(), -1);
 
-                    simRoadNetworkNodes.Add(vPrev);
+                    Nodes.Add(vPrev);
 
-                    vNodes.Add(link.index, vPrev);
+                    vNodes.Add(road.index, vPrev);
                 }
 
                 // 終端の仮想ノードを生成
                 if (next == null && vNext == null)
                 {
-                    vNext = new RoadNetworkElementNode(context, simRoadNetworkNodes.Count.ToString(), -1);
+                    vNext = new RoadNetworkElementNode(context, Nodes.Count.ToString(), -1);
 
                     simRoadNetworkNodes.Add(vNext);
                 }
                 if (prev == null && vPrev == null)
                 {
-                    vPrev = new RoadNetworkElementNode(context, simRoadNetworkNodes.Count.ToString(), -1);
+                    vPrev = new RoadNetworkElementNode(context, Nodes.Count.ToString(), -1);
 
                     simRoadNetworkNodes.Add(vPrev);
                 }
 
-                var simNodeNext = next != null ? simRoadNetworkNodes.Find(x => x.OriginNode == next) : vNext;
-                var simNodePrev = prev != null ? simRoadNetworkNodes.Find(x => x.OriginNode == prev) : vPrev;
+                var simNodeNext = next != null ? Nodes.Find(x => x.OriginNode == next) : vNext;
+                var simNodePrev = prev != null ? Nodes.Find(x => x.OriginNode == prev) : vPrev;
 
                 var simNodeNextID = simNodeNext.ID.Replace(RoadNetworkElementNode.IDPrefix, "");
                 var simNodePrevID = simNodePrev.ID.Replace(RoadNetworkElementNode.IDPrefix, "");
 
                 // リンクの生成
-                var simLinkL = new RoadNetworkElementLink(context, link.index + "_" + simNodePrevID + "_" + simNodeNextID, link.index);
-                var simLinkR = new RoadNetworkElementLink(context, link.index + "_" + simNodeNextID + "_" + simNodePrevID, link.index);
+                var simLinkL = new RoadNetworkElementLink(context, road.index + "_" + simNodePrevID + "_" + simNodeNextID, road.index);
+                var simLinkR = new RoadNetworkElementLink(context, road.index + "_" + simNodeNextID + "_" + simNodePrevID, road.index);
 
                 simLinkL.IsReverse = false;
                 simLinkR.IsReverse = true;
@@ -441,14 +458,138 @@ namespace PLATEAU.Editor.RoadNetwork.Exporter
         }
 
         /// <summary>
+        /// 信号現示情報を生成します
+        /// </summary>
+        /// <param name="context"></param>
+        private void GenerateExpSignal(RoadNetworkContext context)
+        {
+#if PLATEAU_TOOLKIT
+
+            var roadNetworkRoads = context.RoadNetworkGetter.GetRoadBases();
+
+            var trafficIntersections = GameObject.FindObjectsOfType<AWSIM.TrafficSimulation.TrafficIntersection>();
+
+            foreach (var intersection in trafficIntersections)
+            {
+                var node = intersection.rnTrafficLightController.Parent.ID;
+
+                var signalController = new RoadNetworkElementSignalController(context, node.ToString(), -1);
+
+                signalController.Node = Nodes.Find(x => x.OriginNode == roadNetworkRoads[node]);
+
+                signalController.Coord = intersection.transform.position;
+
+                // オフセットは非対応
+                //signalController.OffsetController
+                //signalController.OffsetType
+                //signalController.OffsetValue
+
+                List<List<(RoadNetworkElementLink, RoadNetworkElementLink)>> linkGroups = new List<List<(RoadNetworkElementLink, RoadNetworkElementLink)>>();
+
+                // 信号灯火器の生成
+
+                foreach (var trafficLightGroup in intersection.TrafficLightGroups.Select((value, index) => new { value, index }))
+                {
+                    List<(RoadNetworkElementLink, RoadNetworkElementLink)> linkPairs = new List<(RoadNetworkElementLink, RoadNetworkElementLink)>();
+
+                    foreach (var trafficLight in trafficLightGroup.value.TrafficLights.Select((value, index) => new { value, index }))
+                    {
+                        var signalLight = new RoadNetworkElementSignalLight(context, node + "_" + trafficLightGroup.index + "_" + trafficLight.index, -1);
+
+                        signalLight.Controller = signalController;
+
+                        signalLight.Coord = trafficLight.value.transform.position;
+
+                        signalLight.Link = Links.Find(x => x.OriginLink == roadNetworkRoads[trafficLight.value.rnTrafficLight.RoadId.ID] && x.DownNode == signalController.Node); // OriginLink と DownNode からリンクを特定
+
+                        // トラックからリンクペアを検索
+                        foreach (var track in signalController.Node.Tracks)
+                        {
+                            if (track.UpLink == signalLight.Link)
+                            {
+                                if (!linkPairs.Contains((track.UpLink, track.DownLink)))
+                                {
+                                    linkPairs.Add((track.UpLink, track.DownLink));
+                                }
+                            }
+                        }
+
+                        SignalLights.Add(signalLight);
+
+                        signalController.SignalLights.Add(signalLight); // 信号制御器にも追加
+                    }
+
+                    linkGroups.Add(linkPairs);
+                }
+
+                // 信号現示階梯の生成
+
+                foreach (var lightingSequence in intersection.LightingSequences.Select((value, index) => new { value, index }))
+                {
+                    var signalStep = new RoadNetworkElementSignalStep(context, node + "_" + lightingSequence.index, -1);
+
+                    signalStep.Controller = signalController;
+
+                    signalStep.SignalLights = signalController.SignalLights;
+
+                    signalStep.PatternID = "SignalPattern" + node + "_0"; // 時間帯別制御パターンは非対応
+
+                    signalStep.Order = lightingSequence.index;
+
+                    signalStep.Duration = (int)lightingSequence.value.IntervalSec;
+
+                    foreach (var groupLightingOrder in lightingSequence.value.GroupLightingOrders)
+                    {
+                        var group = groupLightingOrder.Group;
+
+                        var bulb = groupLightingOrder.BulbData;
+
+                        if (bulb == null || bulb.Length == 0)
+                        {
+                            continue;
+                        }
+
+                        if (bulb[0].Color == AWSIM.TrafficLightData.BulbColor.GREEN)
+                        {
+                            signalStep.LinkPairsGreen = linkGroups[group];
+                        }
+                        else if (bulb[0].Color == AWSIM.TrafficLightData.BulbColor.YELLOW)
+                        {
+                            signalStep.LinkPairsYellow = linkGroups[group];
+                        }
+                        else if (bulb[0].Color == AWSIM.TrafficLightData.BulbColor.RED)
+                        {
+                            signalStep.LinkPairsRed = linkGroups[group];
+                        }
+                    }
+
+                    SignalSteps.Add(signalStep);
+
+                    // 信号制御器にも追加・時間帯別制御パターンは非対応
+
+                    var startTime = "00/00/00";
+
+                    if (!signalController.SignalPatterns.ContainsKey(startTime))
+                    {
+                        signalController.SignalPatterns[startTime] = new List<RoadNetworkElementSignalStep>();
+                    }
+
+                    signalController.SignalPatterns[startTime].Add(signalStep);
+                }
+
+                SignalControllers.Add(signalController);
+            }
+#endif
+        }
+
+        /// <summary>
         /// 信号制御器をエクスポートします。
-        /// この機能は未完成です。
         /// </summary>
         /// <param name="simSignalControllers">信号制御器のリスト</param>
         private void ExportSignalController(List<RoadNetworkElementSignalController> simSignalControllers)
         {
             if (simSignalControllers.Count == 0) return;
-            
+
             var geoJsonFeature = new List<GeoJsonFeature>();
 
             foreach (var simSignalController in simSignalControllers)
@@ -462,7 +603,7 @@ namespace PLATEAU.Editor.RoadNetwork.Exporter
                     ID = simSignalController.ID,
                     ALLOCNODE = simSignalController.GetNode(),
                     SIGLIGHT = simSignalController.GetSignalLights(),
-                    OFFSETBASESIGID = simSignalController.OffsetController != null ? simSignalController.OffsetController.ID : null,
+                    OFFSETBASESIGID = simSignalController.OffsetController != null ? simSignalController.OffsetController.ID : string.Empty,
                     NUMOFPATTERN = simSignalController.GetPatternNum(),
                     PATTERNID = simSignalController.GetPatternID(),
                     INITCYCLE = simSignalController.GetCycleLen(),
@@ -480,13 +621,12 @@ namespace PLATEAU.Editor.RoadNetwork.Exporter
 
         /// <summary>
         /// 信号灯火気をエクスポートします
-        /// この機能は未完成です。
         /// </summary>
         /// <param name="simSignalLights">信号灯火器のリスト</param>
         private void ExportSignalLight(List<RoadNetworkElementSignalLight> simSignalLights)
         {
             if (simSignalLights.Count == 0) return;
-            
+
             var geoJsonFeature = new List<GeoJsonFeature>();
 
             foreach (var simSignalLight in simSignalLights)
@@ -498,8 +638,8 @@ namespace PLATEAU.Editor.RoadNetwork.Exporter
                 var propety = new GeoJsonFeaturePropertiesSignalLight
                 {
                     ID = simSignalLight.ID,
-                    SIGNALID = simSignalLight.Controller.ID,
-                    LINKID = simSignalLight.Link.ID,
+                    SIGNALID = simSignalLight.Controller?.ID,
+                    LINKID = simSignalLight.Link?.ID,
                     LANETYPE = simSignalLight.GetLaneType(),
                     LANEPOS = simSignalLight.GetLanePos(),
                     DISTANCE = simSignalLight.GetDistance(),
@@ -512,14 +652,13 @@ namespace PLATEAU.Editor.RoadNetwork.Exporter
         }
 
         /// <summary>
-        /// 信号現示階梯をエクスポートします。
-        /// この機能は未完成です。
+        /// 信号現示階梯をエクスポートします
         /// </summary>
         /// <param name="simSignalSteps">信号現示階梯のリスト</param>
         private void ExportSignalStep(List<RoadNetworkElementSignalStep> simSignalSteps)
         {
             if (simSignalSteps.Count == 0) return;
-            
+
             var geoJsonFeature = new List<GeoJsonFeature>();
 
             foreach (var simSignalStep in simSignalSteps)
@@ -531,6 +670,7 @@ namespace PLATEAU.Editor.RoadNetwork.Exporter
                 var propety = new GeoJsonFeaturePropertiesSignalStep
                 {
                     ID = simSignalStep.ID,
+                    SIGNALID = simSignalStep.GetSignalController(),
                     PATTERNID = simSignalStep.PatternID,
                     ORDER = simSignalStep.Order,
                     DURATION = simSignalStep.Duration,
